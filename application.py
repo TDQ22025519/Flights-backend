@@ -28,9 +28,11 @@ def get_flights():
             "departure": flight[1],
             "destination": flight[2],
             "departureDate": flight[3].isoformat(),
-            "returnDate": flight[4].isoformat() if flight[4] else None,
-            "class": flight[5],
-            "price": float(flight[6])
+            "departureTime": flight[4].isoformat() if flight[4] else None,
+            "returnDate": flight[5].isoformat() if flight[5] else None,
+            "returnTime": flight[6].isoformat() if flight[6] else None,
+            "class": flight[7],
+            "price": float(flight[8])
         }
         flight_list.append(flight_dict)
     cursor.close()
