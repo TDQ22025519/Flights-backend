@@ -1,15 +1,17 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import psycopg2
 from werkzeug.security import generate_password_hash, check_password_hash
 
 application = Flask(__name__)
+CORS(application)
 
 # Database connection parameters
 DB_HOST = 'pg-27c1c731-dangquang22082004-c173.i.aivencloud.com'  # Change if your database is hosted elsewhere
 DB_NAME = 'defaultdb'
 DB_PORT = 11234
 DB_USER = 'avnadmin'  # Replace with your PostgreSQL username
-DB_PASSWORD = 'AVNS__gBahRug88lvOv4H3sb'  # Replace with your PostgreSQL password
+DB_PASSWORD = input("Please enter your password:")
 
 def get_db_connection():
     conn = psycopg2.connect(
@@ -43,6 +45,63 @@ def get_flights():
     cursor.close()
     conn.close()
     return flight_list
+
+def book_tickets(user_name_input, flight_number_input, tickets_to_book):
+    try:
+        # Connect to the database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Start a transaction
+        cursor.execute("BEGIN;")
+
+        # Retrieve the current max_seats and booked_seats for the flight
+        cursor.execute("""
+            SELECT s.max_seats, s.booked_seats 
+            FROM seats s 
+            WHERE s.flightnumber = %s 
+            FOR UPDATE;
+        """, [flight_number_input])
+        
+        max_seats, booked_seats = cursor.fetchone()
+
+        # Check if there are enough available seats
+        if (max_seats - booked_seats) >= tickets_to_book:
+            # Update the booked_seats
+            cursor.execute("""
+                UPDATE seats 
+                SET booked_seats = booked_seats + %s 
+                WHERE flightnumber = %s;
+            """, [tickets_to_book, flight_number_input])
+
+            # Get account ID
+            cursor.execute("""
+                SELECT a.id 
+                FROM accounts a 
+                WHERE a.username = %s;
+            """, [user_name_input])
+            account_id = cursor.fetchone()[0]
+
+            # Insert bookings
+            cursor.execute("""
+                INSERT INTO bookings (account_id, flightnumber) 
+                SELECT %s, %s 
+                FROM generate_series(1, %s);
+            """, [account_id, flight_number_input, tickets_to_book])
+
+            # Commit the transaction
+            conn.commit()
+            return {"message": "Tickets booked successfully!"}
+        else:
+            raise Exception(f'Not enough available seats to book {tickets_to_book} tickets')
+
+    except Exception as e:
+        # Rollback in case of error
+        conn.rollback()
+        return {"error": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
 
 @application.route('/flights', methods=['GET'])
 def flights():
@@ -107,6 +166,86 @@ def login():
         cursor.close()
         conn.close()
         return jsonify({'error': 'Invalid username or password'}), 401
+
+@application.route('/book', methods=['POST'])
+def book_tickets_route():
+    data = request.json
+    user_name_input = data.get('username')
+    flight_number_input = data.get('flightnumber')
+    tickets_to_book = data.get('numberoftickets')
+
+    if not user_name_input or not flight_number_input or not tickets_to_book:
+        return jsonify({"error": "Missing input values"}), 400
+
+    result = book_tickets(user_name_input, flight_number_input, tickets_to_book)
+    return jsonify(result)
+
+@application.route('/bookings/<username>', methods=['GET'])
+def get_bookings(username):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute('''
+            SELECT f.flightnumber, f.departure, f.destination, b.booking_time, b.booking_id
+            FROM bookings b
+            JOIN accounts a ON b.account_id = a.id
+            JOIN flights f ON b.flightnumber = f.flightnumber
+            WHERE a.username = %s
+        ''', (username,))
+        bookings = cur.fetchall()
+
+        if not bookings:
+            return jsonify({'message': 'No bookings found for this user.'}), 404
+
+        booking_list = []
+        for booking in bookings:
+            booking_list.append({
+                'flightnumber': booking[0],
+                'departure': booking[1],
+                'destination': booking[2],
+                'booking_time': booking[3].isoformat(),
+                'booking_id': booking[4]
+            })
+
+        return jsonify(booking_list), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        cur.close()
+        conn.close()
+
+
+@application.route('/cancel', methods=['POST'])
+def cancel_booking():
+    data = request.get_json()
+    booking_id = data.get('booking_id')
+    username = data.get('username')
+    flightnumber = data.get('flightnumber')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Get account_id based on username
+        cur.execute('SELECT id FROM accounts WHERE username = %s', (username,))
+        account = cur.fetchone()
+        if account is None:
+            return jsonify({'error': 'User not found!'}), 404
+
+        account_id = account[0]
+
+        # Delete booking
+        cur.execute('DELETE FROM bookings WHERE account_id = %s AND flightnumber = %s AND booking_id = %s', (account_id, flightnumber, booking_id))
+        conn.commit()
+
+        if cur.rowcount == 0:
+            return jsonify({'error': 'No booking found for this user and flight.'}), 404
+
+        return jsonify({'message': 'Booking canceled successfully!'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        cur.close()
+        conn.close()
 
 if __name__ == '__main__':
     application.run(debug=True)
