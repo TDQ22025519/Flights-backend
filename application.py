@@ -11,7 +11,7 @@ DB_HOST = 'pg-27c1c731-dangquang22082004-c173.i.aivencloud.com'  # Change if you
 DB_NAME = 'defaultdb'
 DB_PORT = 11234
 DB_USER = 'avnadmin'  # Replace with your PostgreSQL username
-DB_PASSWORD = input("Please enter your password:")
+DB_PASSWORD = 'AVNS__gBahRug88lvOv4H3sb'
 
 def get_db_connection():
     conn = psycopg2.connect(
@@ -47,61 +47,50 @@ def get_flights():
     return flight_list
 
 def book_tickets(user_name_input, flight_number_input, tickets_to_book):
-    try:
-        # Connect to the database
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-        # Start a transaction
-        cursor.execute("BEGIN;")
+    cursor.execute("""
+        SELECT s.max_seats, s.booked_seats 
+        FROM seats s 
+        WHERE s.flightnumber = %s 
+        FOR UPDATE;
+    """, [flight_number_input])
+    
+    max_seats, booked_seats = cursor.fetchone()
 
-        # Retrieve the current max_seats and booked_seats for the flight
+    # Check if there are enough available seats
+    if (max_seats - booked_seats) >= tickets_to_book:
+        # Update the booked_seats
         cursor.execute("""
-            SELECT s.max_seats, s.booked_seats 
-            FROM seats s 
-            WHERE s.flightnumber = %s 
-            FOR UPDATE;
-        """, [flight_number_input])
-        
-        max_seats, booked_seats = cursor.fetchone()
+            UPDATE seats 
+            SET booked_seats = %s + %s 
+            WHERE flightnumber = %s;
+        """, [booked_seats, tickets_to_book, flight_number_input])
 
-        # Check if there are enough available seats
-        if (max_seats - booked_seats) >= tickets_to_book:
-            # Update the booked_seats
-            cursor.execute("""
-                UPDATE seats 
-                SET booked_seats = booked_seats + %s 
-                WHERE flightnumber = %s;
-            """, [tickets_to_book, flight_number_input])
+        # Get account ID
+        cursor.execute("""
+            SELECT a.id 
+            FROM accounts a 
+            WHERE a.username = %s;
+        """, [user_name_input])
+        account_id = cursor.fetchone()[0]
 
-            # Get account ID
-            cursor.execute("""
-                SELECT a.id 
-                FROM accounts a 
-                WHERE a.username = %s;
-            """, [user_name_input])
-            account_id = cursor.fetchone()[0]
+        # Insert bookings
+        cursor.execute("""
+            INSERT INTO bookings (account_id, flightnumber) 
+            SELECT %s, %s 
+            FROM generate_series(1, %s);
+        """, [account_id, flight_number_input, tickets_to_book])
 
-            # Insert bookings
-            cursor.execute("""
-                INSERT INTO bookings (account_id, flightnumber) 
-                SELECT %s, %s 
-                FROM generate_series(1, %s);
-            """, [account_id, flight_number_input, tickets_to_book])
+        # Commit the transaction
+        conn.commit()
+        return {"message": "Tickets booked successfully!"}
+    else:
+        raise Exception(f'Not enough available seats to book {tickets_to_book} tickets')
 
-            # Commit the transaction
-            conn.commit()
-            return {"message": "Tickets booked successfully!"}
-        else:
-            raise Exception(f'Not enough available seats to book {tickets_to_book} tickets')
-
-    except Exception as e:
-        # Rollback in case of error
-        conn.rollback()
-        return {"error": str(e)}
-    finally:
-        cursor.close()
-        conn.close()
+    cursor.close()
+    conn.close()
 
 @application.route('/flights', methods=['GET'])
 def flights():
