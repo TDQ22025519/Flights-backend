@@ -41,7 +41,8 @@ def get_flights():
             "departureTime": flight[4].isoformat() if flight[4] else None,
             "returnDate": flight[5].isoformat() if flight[5] else None,
             "returnTime": flight[6].isoformat() if flight[6] else None,
-            "price": float(flight[7])
+            "class": flight[7],
+            "price": float(flight[8])
         }
         flight_list.append(flight_dict)
     cursor.close()
@@ -129,9 +130,10 @@ def add_flight():
     departuretime = data.get('departuretime')
     returndate = None if data.get('returndate') == '' else data.get('returndate')  # Optional
     returntime = None if data.get('returntime') == '' else data.get('returntime')  # Optional
+    class_type = data.get('class')
     price = data.get('price')
     # Validate required fields
-    if not all([flightnumber, departure, destination, departuredate, departuretime, price]):
+    if not all([flightnumber, departure, destination, departuredate, departuretime, class_type, price]):
         return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_db_connection()
@@ -141,9 +143,9 @@ def add_flight():
         existing_plane = cursor.fetchone()
         if existing_plane:
             cursor.execute("""
-                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price)
+                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, class)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price))
+            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, class_type))
             conn.commit()
             return jsonify({"message": "Flight added successfully!"}), 201
         else:
@@ -163,6 +165,7 @@ def modify_flight(flightnumber):
     departuretime = data.get('departuretime')
     returndate = data.get('returndate')  # Optional
     returntime = data.get('returntime')  # Optional
+    class_type = data.get('class')
     price = data.get('price')
     
     # Validate required fields (you can adjust this based on your requirements)
@@ -196,6 +199,9 @@ def modify_flight(flightnumber):
             update_values.append(returntime)
         if price:
             update_fields.append("price = %s")
+            update_values.append(price)
+        if class_type:
+            update_fields.append("class = %s")
             update_values.append(price)
 
         # Add flightnumber to the end of the update values
@@ -454,7 +460,6 @@ def book_tickets_route():
     user_name_input = data.get('username')
     flight_number_input = data.get('flightnumber')
     tickets_to_book = data.get('numberoftickets')
-    class_type_input = data.get('class')
     age_group_input = data.get('age')  # Get the age group from the request
 
     if not user_name_input or not flight_number_input or not tickets_to_book or not age_group_input:
@@ -488,10 +493,10 @@ def book_tickets_route():
 
         # Insert multiple booking records for each ticket booked
         cursor.execute("""
-            INSERT INTO bookings (account_id, flightnumber, class, age)
-            SELECT %s, %s, %s, %s
+            INSERT INTO bookings (account_id, flightnumber, age)
+            SELECT %s, %s, %s
             FROM generate_series(1, %s);
-        """, [accountId, flight_number_input, class_type_input, age_group_input, tickets_to_book])
+        """, [accountId, flight_number_input, age_group_input, tickets_to_book])
 
         # Commit the transaction
         conn.commit()
@@ -509,7 +514,7 @@ def get_bookings(username):
     cur = conn.cursor()
     try:
         cur.execute('''
-            SELECT f.flightnumber, f.departure, f.destination, b.booking_time, b.booking_id, b.class, b.age
+            SELECT f.flightnumber, f.departure, f.destination, b.booking_time, b.booking_id, b.age
             FROM bookings b
             JOIN accounts a ON b.account_id = a.id
             JOIN flights f ON b.flightnumber = f.flightnumber
@@ -528,8 +533,7 @@ def get_bookings(username):
                 'destination': booking[2],
                 'booking_time': booking[3].isoformat(),
                 'booking_id': booking[4],
-                'class': booking[5],
-                'age': booking[6]
+                'age': booking[5]
             })
 
         return jsonify(booking_list), 200
