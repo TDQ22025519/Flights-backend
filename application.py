@@ -26,7 +26,8 @@ def get_db_connection():
     )
     return conn
 
-def get_flights():
+@application.route('/flights', methods=['GET'])
+def flights():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM flights;")
@@ -41,84 +42,14 @@ def get_flights():
             "departureTime": flight[4].isoformat() if flight[4] else None,
             "returnDate": flight[5].isoformat() if flight[5] else None,
             "returnTime": flight[6].isoformat() if flight[6] else None,
-            "class": flight[7],
-            "price": float(flight[8])
+            "price": float(flight[7]),
+            "distance": float(flight[8]),
+            "duration": flight[9].isoformat()
         }
         flight_list.append(flight_dict)
     cursor.close()
     conn.close()
-    return flight_list
-
-def get_planes():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM planes;")
-    planes = cursor.fetchall()
-    plane_list = []
-    for plane in planes:
-        plane_dict = {
-            "flightNumber": plane[0],
-            "manufacturer": plane[1],
-            "model": plane[2],
-            "year": plane[3],
-            "details": plane[4] if plane[4] else None,
-            "max_seats": plane[5]
-        }
-        plane_list.append(plane_dict)
-    cursor.close()
-    conn.close()
-    return plane_list
-
-def book_tickets(user_name_input, flight_number_input, tickets_to_book):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT s.max_seats, s.booked_seats 
-        FROM seats s 
-        WHERE s.flightnumber = %s 
-        FOR UPDATE;
-    """, [flight_number_input])
-    
-    max_seats, booked_seats = cursor.fetchone()
-
-    # Check if there are enough available seats
-    if (max_seats - booked_seats) >= tickets_to_book:
-        # Update the booked_seats
-        cursor.execute("""
-            UPDATE seats 
-            SET booked_seats = booked_seats + %s 
-            WHERE flightnumber = %s;
-        """, [tickets_to_book, flight_number_input])
-
-        # Get account ID
-        cursor.execute("""
-            SELECT a.id 
-            FROM accounts a 
-            WHERE a.username = %s;
-        """, [user_name_input])
-        account_id = cursor.fetchone()[0]
-
-        # Insert bookings
-        cursor.execute("""
-            INSERT INTO bookings (account_id, flightnumber) 
-            SELECT %s, %s 
-            FROM generate_series(1, %s);
-        """, [account_id, flight_number_input, tickets_to_book])
-
-        # Commit the transaction
-        conn.commit()
-        return {"message": "Tickets booked successfully!"}
-    else:
-        raise Exception(f'Not enough available seats to book {tickets_to_book} tickets')
-
-    cursor.close()
-    conn.close()
-
-@application.route('/flights', methods=['GET'])
-def flights():
-    flight_data = get_flights()
-    return jsonify(flight_data)
+    return jsonify(flight_list)
 
 @application.route('/add_flight', methods=['POST'])
 def add_flight():
@@ -130,10 +61,11 @@ def add_flight():
     departuretime = data.get('departuretime')
     returndate = None if data.get('returndate') == '' else data.get('returndate')  # Optional
     returntime = None if data.get('returntime') == '' else data.get('returntime')  # Optional
-    class_type = data.get('class')
     price = data.get('price')
+    distance = data.get('distance')
+    duration = data.get('duration')
     # Validate required fields
-    if not all([flightnumber, departure, destination, departuredate, departuretime, class_type, price]):
+    if not all([flightnumber, departure, destination, departuredate, departuretime, price, distance, duration]):
         return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_db_connection()
@@ -143,9 +75,9 @@ def add_flight():
         existing_plane = cursor.fetchone()
         if existing_plane:
             cursor.execute("""
-                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, class)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, class_type))
+                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration))
             conn.commit()
             return jsonify({"message": "Flight added successfully!"}), 201
         else:
@@ -165,11 +97,12 @@ def modify_flight(flightnumber):
     departuretime = data.get('departuretime')
     returndate = data.get('returndate')  # Optional
     returntime = data.get('returntime')  # Optional
-    class_type = data.get('class')
     price = data.get('price')
+    distance = data.get('distance')
+    duration = data.get('duration')
     
     # Validate required fields (you can adjust this based on your requirements)
-    if not any([departure, destination, departuredate, departuretime, price]):
+    if not any([departure, destination, departuredate, departuretime, price, distance, duration]):
         return jsonify({"error": "At least one field must be provided for modification"}), 400
 
     conn = get_db_connection()
@@ -200,9 +133,12 @@ def modify_flight(flightnumber):
         if price:
             update_fields.append("price = %s")
             update_values.append(price)
-        if class_type:
-            update_fields.append("class = %s")
-            update_values.append(price)
+        if distance:
+            update_fields.append("distance = %s")
+            update_values.append(distance)
+        if duration:
+            update_fields.append("duration = %s")
+            update_values.append(duration)
 
         # Add flightnumber to the end of the update values
         update_values.append(flightnumber)
@@ -253,8 +189,27 @@ def delete_flight():
 
 @application.route('/planes', methods=['GET'])
 def planes():
-    plane_data = get_planes()
-    return jsonify(plane_data)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM planes;")
+    planes = cursor.fetchall()
+    plane_list = []
+    for plane in planes:
+        plane_dict = {
+            "flightNumber": plane[0],
+            "manufacturer": plane[1],
+            "model": plane[2],
+            "year": plane[3],
+            "details": plane[4] if plane[4] else None,
+            "max_seats": plane[5],
+            "max_eco": plane[6],
+            "max_bus": plane[7],
+            "max_first": plane[8]
+        }
+        plane_list.append(plane_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(plane_list)
 
 @application.route('/add_plane', methods=['POST'])
 def add_plane():
@@ -266,22 +221,25 @@ def add_plane():
     year = data.get('year')
     details = data.get('details')
     max_seats = data.get('max_seats')
+    max_eco = data.get('max_eco')
+    max_bus = data.get('max_bus')
+    max_first = data.get('max_first')
 
     # Validate required fields
-    if not all([flightnumber, manufacturer, model, year, max_seats]):
+    if not all([flightnumber, manufacturer, model, year, max_seats, max_eco, max_bus, max_first]):
         return jsonify({"error": "Missing required fields"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO planes (flightnumber, manufacturer, model, year, details, max_seats)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (flightnumber, manufacturer, model, year, details, max_seats))
+            INSERT INTO planes (flightnumber, manufacturer, model, year, details, max_seats, max_eco, max_bus, max_first)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (flightnumber, manufacturer, model, year, details, max_seats, max_eco, max_bus, max_first))
         cursor.execute("""
-            INSERT INTO seats (flightnumber, max_seats, booked_seats)
-            VALUES (%s, %s, 0)
-        """, (flightnumber, max_seats))
+            INSERT INTO seats (flightnumber, max_eco, booked_seats_eco, max_bus, booked_seats_bus, max_first, booked_seats_first)
+            VALUES (%s, %s, 0, %s, 0, %s, 0)
+        """, (flightnumber, max_eco, max_bus, max_first))
         conn.commit()
         return jsonify({"message": "Plane added successfully!"}), 201
     except Exception as e:
@@ -299,6 +257,9 @@ def update_plane(flightnumber):
     year = data.get('year')
     details = data.get('details')
     max_seats = data.get('max_seats')
+    max_eco = data.get('max_eco')
+    max_bus = data.get('max_bus')
+    max_first = data.get('max_first')
 
     # Prepare the update query
     update_fields = []
@@ -319,6 +280,15 @@ def update_plane(flightnumber):
     if max_seats:
         update_fields.append("max_seats = %s")
         update_values.append(max_seats)
+    if max_eco:
+        update_fields.append("max_eco = %s")
+        update_values.append(max_eco)
+    if max_bus:
+        update_fields.append("max_bus = %s")
+        update_values.append(max_bus)
+    if max_first:
+        update_fields.append("max_first = %s")
+        update_values.append(max_first)
 
     # If no fields are provided for update, return an error
     if not update_fields:
@@ -338,6 +308,17 @@ def update_plane(flightnumber):
         """
 
         cursor.execute(update_query, update_values)
+        cursor.execute("""
+            UPDATE seats
+            SET 
+                max_eco = p.max_eco,
+                max_bus = p.max_bus,
+                max_first = p.max_first
+            FROM planes p
+            WHERE seats.flightnumber = p.flightnumber
+            AND seats.flightnumber = %s;
+        """, (flightnumber,))
+
         conn.commit()
 
         if cursor.rowcount == 0:
@@ -457,70 +438,153 @@ def login():
 @application.route('/book', methods=['POST'])
 def book_tickets_route():
     data = request.json
-    user_name_input = data.get('username')
-    flight_number_input = data.get('flightnumber')
-    tickets_to_book = data.get('numberoftickets')
-    age_group_input = data.get('age')  # Get the age group from the request
+    username = data.get('username')
+    flightnumber = data.get('flightnumber')
+    ticket = data.get('ticket_type_id')
+    seatclass = data.get('seat_class_id')
+    quantity = data.get('numberoftickets')
 
-    if not user_name_input or not flight_number_input or not tickets_to_book or not age_group_input:
+    if not all ([username, flightnumber, ticket, seatclass, quantity]):
         return jsonify({"error": "Missing input values"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Start a transaction
-    cursor.execute("""BEGIN;""")
+    if (ticket == 1): 
+        cursor.execute("""
+            SELECT max_eco, booked_seats_eco
+            FROM seats 
+            WHERE flightnumber = %s
+            FOR UPDATE;
+        """, [flightnumber])
+    elif (ticket == 2):
+        cursor.execute("""
+            SELECT max_bus, booked_seats_bus
+            FROM seats 
+            WHERE flightnumber = %s
+            FOR UPDATE;
+        """, [flightnumber])
+    else:
+        cursor.execute("""
+            SELECT max_first, booked_seats_first
+            FROM seats  
+            WHERE flightnumber = %s
+            FOR UPDATE;
+        """, [flightnumber])
 
-    # Retrieve the current max_seats and booked_seats for the flight
-    cursor.execute("""
-        SELECT s.max_seats, s.booked_seats 
-        FROM seats s 
-        WHERE s.flightnumber = %s 
-        FOR UPDATE;
-    """, [flight_number_input])
-
-    max_seats, bookedseats = cursor.fetchone()
+    max_seats, booked_seats = cursor.fetchone()
 
     # Check if there are enough available seats
-    if (max_seats - bookedseats) >= tickets_to_book:
+    if int(max_seats - booked_seats) >= int(quantity):
         # Get account ID
         cursor.execute("""
             SELECT a.id 
             FROM accounts a 
             WHERE a.username = %s;
-        """, [user_name_input])
+        """, [username])
         accountId = cursor.fetchone()[0]
+
+        #Get price
+        cursor.execute("""
+            SELECT price
+            FROM flights
+            WHERE flightnumber = %s;
+        """, [flightnumber])
+        flightprice = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT discount
+            FROM tickets
+            WHERE id = %s;
+        """, [ticket])
+        discount = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT multiplier
+            FROM seatclasses
+            WHERE id = %s;
+        """, [seatclass])
+        multiplier = cursor.fetchone()[0]
+
+        #calculate total price
+        totalPrice = flightprice * discount * multiplier * int(quantity)
 
         # Insert multiple booking records for each ticket booked
         cursor.execute("""
-            INSERT INTO bookings (account_id, flightnumber, age)
-            SELECT %s, %s, %s
-            FROM generate_series(1, %s);
-        """, [accountId, flight_number_input, age_group_input, tickets_to_book])
+            INSERT INTO bookings (account_id, flightnumber, ticket_type_id, seat_class_id, quantity, price)
+            SELECT %s, %s, %s, %s, %s, %s
+        """, [accountId, flightnumber, ticket, seatclass, quantity, totalPrice])
 
         # Commit the transaction
         conn.commit()
         return jsonify({'message': 'Tickets booked successfully'}), 200
     else:
-        return jsonify({'error': f'Not enough available seats to book {tickets_to_book} tickets'}), 400
+        return jsonify({'error': f'Not enough available seats to book {quantity} tickets'}), 400
 
     cursor.close()
     conn.close()
 
 
+@application.route('/price', methods=['POST'])
+def see_price():
+    data = request.json
+    flightnumber = data.get('flightnumber')
+    ticket = data.get('ticket_type_id')
+    seatclass = data.get('seat_class_id')
+    quantity = data.get('quantity')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        #Get price
+        cursor.execute("""
+            SELECT price
+            FROM flights
+            WHERE flightnumber = %s;
+        """, [flightnumber])
+        flightprice = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT discount
+            FROM tickets
+            WHERE id = %s;
+        """, [ticket])
+        discount = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT multiplier
+            FROM seatclasses
+            WHERE id = %s;
+        """, [seatclass])
+        multiplier = cursor.fetchone()[0]
+
+        #calculate total price
+        totalPrice = flightprice * discount * multiplier * int(quantity)
+        
+        conn.commit()
+        return jsonify({'totalPrice': totalPrice}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+        
 @application.route('/bookings/<username>', methods=['GET'])
 def get_bookings(username):
     conn = get_db_connection()
-    cur = conn.cursor()
+    cursor = conn.cursor()
     try:
-        cur.execute('''
-            SELECT f.flightnumber, f.departure, f.destination, b.booking_time, b.booking_id, b.age
+        cursor.execute('''
+            SELECT f.flightnumber, f.departure, f.destination, f.distance, f.duration, 
+            b.booking_time, b.booking_id, b.quantity, b.price, t.type_name, s.class_name
             FROM bookings b
             JOIN accounts a ON b.account_id = a.id
             JOIN flights f ON b.flightnumber = f.flightnumber
+            JOIN tickets t ON b.ticket_type_id = t.id
+            JOIN seatclasses s ON b.seat_class_id = s.id
             WHERE a.username = %s
         ''', (username,))
-        bookings = cur.fetchall()
+        bookings = cursor.fetchall()
 
         if not bookings:
             return jsonify({'message': 'No bookings found for this user.'}), 404
@@ -531,16 +595,21 @@ def get_bookings(username):
                 'flightnumber': booking[0],
                 'departure': booking[1],
                 'destination': booking[2],
-                'booking_time': booking[3].isoformat(),
-                'booking_id': booking[4],
-                'age': booking[5]
+                'distance': booking[3],
+                'duration':booking[4].isoformat(),
+                'booking_time': booking[5].isoformat(),
+                'booking_id': booking[6],
+                'quantity': booking[7],
+                'price': booking[8],
+                'type_name': booking[9],
+                'class_name': booking[10]
             })
 
         return jsonify(booking_list), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
     finally:
-        cur.close()
+        cursor.close()
         conn.close()
 
 
@@ -552,28 +621,28 @@ def cancel_booking():
     flightnumber = data.get('flightnumber')
 
     conn = get_db_connection()
-    cur = conn.cursor()
+    cursor = conn.cursor()
     try:
         # Get account_id based on username
-        cur.execute('SELECT id FROM accounts WHERE username = %s', (username,))
-        account = cur.fetchone()
+        cursor.execute('SELECT id FROM accounts WHERE username = %s', (username,))
+        account = cursor.fetchone()
         if account is None:
             return jsonify({'error': 'User not found!'}), 404
 
         account_id = account[0]
 
         # Delete booking
-        cur.execute('DELETE FROM bookings WHERE account_id = %s AND flightnumber = %s AND booking_id = %s', (account_id, flightnumber, booking_id))
+        cursor.execute('DELETE FROM bookings WHERE account_id = %s AND flightnumber = %s AND booking_id = %s', (account_id, flightnumber, booking_id))
         conn.commit()
 
-        if cur.rowcount == 0:
+        if cursor.rowcount == 0:
             return jsonify({'error': 'No booking found for this user and flight.'}), 404
 
         return jsonify({'message': 'Booking canceled successfully!'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
     finally:
-        cur.close()
+        cursor.close()
         conn.close()
 
 if __name__ == '__main__':
