@@ -44,7 +44,8 @@ def flights():
             "returnTime": flight[6].isoformat() if flight[6] else None,
             "price": float(flight[7]),
             "distance": float(flight[8]),
-            "duration": flight[9].isoformat()
+            "duration": flight[9].isoformat(),
+            "status": flight[10]
         }
         flight_list.append(flight_dict)
     cursor.close()
@@ -64,6 +65,7 @@ def add_flight():
     price = data.get('price')
     distance = data.get('distance')
     duration = data.get('duration')
+    status = data.get('status') # Optional
     # Validate required fields
     if not all([flightnumber, departure, destination, departuredate, departuretime, price, distance, duration]):
         return jsonify({"error": "Missing required fields"}), 400
@@ -75,9 +77,9 @@ def add_flight():
         existing_plane = cursor.fetchone()
         if existing_plane:
             cursor.execute("""
-                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration))
+                INSERT INTO flights (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """, (flightnumber, departure, destination, departuredate, departuretime, returndate, returntime, price, distance, duration, status))
             conn.commit()
             return jsonify({"message": "Flight added successfully!"}), 201
         else:
@@ -100,6 +102,7 @@ def modify_flight(flightnumber):
     price = data.get('price')
     distance = data.get('distance')
     duration = data.get('duration')
+    status = data.get('status')
     
     # Validate required fields (you can adjust this based on your requirements)
     if not any([departure, destination, departuredate, departuretime, price, distance, duration]):
@@ -139,6 +142,9 @@ def modify_flight(flightnumber):
         if duration:
             update_fields.append("duration = %s")
             update_values.append(duration)
+        if status:
+            update_fields.append("status = %s")
+            update_values.append(status)
 
         # Add flightnumber to the end of the update values
         update_values.append(flightnumber)
@@ -416,6 +422,36 @@ def login():
 
     # Check if the user exists
     cursor.execute("SELECT password_hash FROM accounts WHERE username = %s;", (username,))
+    user = cursor.fetchone()
+
+    if user is None:
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    password_hash = user[0]
+
+    # Check the password
+    if check_password_hash(password_hash, password):
+        cursor.close()
+        conn.close()
+        return jsonify({'message': 'Login successful'}), 200
+    else:
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+@application.route('/admin_login', methods=['POST'])
+def admin_login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if the user exists
+    cursor.execute("SELECT password_hash FROM admin_accounts WHERE username = %s;", (username,))
     user = cursor.fetchone()
 
     if user is None:
