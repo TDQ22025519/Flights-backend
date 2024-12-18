@@ -645,5 +645,124 @@ def cancel_booking():
         cursor.close()
         conn.close()
 
+# Route to fetch messages for a specific thread
+@application.route('/fetch_posts/<int:thread_id>', methods=['GET'])
+def fetch_messages(thread_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT post_id, user_id, content, title, created_at FROM Posts WHERE thread_id = %s ORDER BY created_at;", (thread_id,))
+    messages = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Format the messages into a list of dictionaries
+    message_list = []
+    for message in messages:
+        message_list.append({
+            'post_id': message[0],
+            'user_id': message[1],
+            'content': message[2],
+            'title': message[3],
+            'created_at': message[4].isoformat()  # Convert timestamp to ISO format
+            
+        })
+
+    return jsonify(message_list), 200
+
+# Route to add a message
+@application.route('/upload_post', methods=['POST'])
+def add_message():
+    data = request.json
+    thread_id = data.get('thread_id')
+    user_id = data.get('user_id')
+    content = data.get('content')
+    title = data.get('title')
+
+    if not thread_id or not user_id or not content or not title:
+        return jsonify({'error': 'Missing data'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO Posts (thread_id, user_id, content, title) VALUES (%s, %s, %s, %s) RETURNING post_id;",
+        (thread_id, user_id, content, title)
+    )
+    post_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({'post_id': post_id}), 201
+
+# Route to remove a message
+@application.route('/delete_post/<int:post_id>', methods=['DELETE'])
+def remove_message(post_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM Posts WHERE post_id = %s;", (post_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({'message': 'Post deleted successfully'}), 200
+
+# Route to upload a thread
+@application.route('/upload_thread', methods=['POST'])
+def upload_thread():
+    data = request.json
+    title = data.get('title')
+    user_id = data.get('user_id')
+
+    if not title or not user_id:
+        return jsonify({'error': 'Missing data'}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO Threads (title, user_id) VALUES (%s, %s) RETURNING thread_id;",
+        (title, user_id)
+    )
+    thread_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({'thread_id': thread_id}), 201
+
+# Route to delete a thread
+@application.route('/delete_thread/<int:thread_id>', methods=['DELETE'])
+def delete_thread(thread_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM Threads WHERE thread_id = %s;", (thread_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({'message': 'Thread deleted successfully'}), 200
+
+# Route to fetch all threads
+@application.route('/fetch_threads', methods=['GET'])
+def fetch_threads():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT thread_id, title, user_id, created_at FROM Threads ORDER BY created_at DESC;")
+    threads = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Format the threads into a list of dictionaries
+    thread_list = []
+    for thread in threads:
+        thread_list.append({
+            'thread_id': thread[0],
+            'title': thread[1],
+            'user_id': thread[2],
+            'created_at': thread[3].isoformat()  # Convert timestamp to ISO format
+        })
+
+    return jsonify(thread_list), 200
+
+
 if __name__ == '__main__':
     application.run(debug=True)
