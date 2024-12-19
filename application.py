@@ -810,9 +810,9 @@ def fetch_news():
     post_list = []
     for post in posts:
         post_dict = {
-            "thread_title": flight[0],
-            "post_title": flight[1],
-            "content": flight[2],
+            "thread_title": post[0],
+            "post_title": post[1],
+            "content": post[2],
         }
         post_list.append(post_dict)
     cursor.close()
