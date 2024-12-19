@@ -798,7 +798,26 @@ def fetch_threads():
         })
 
     return jsonify(thread_list), 200
-
+    
+@application.route('/fetch_news', methods=['GET'])
+def fetch_news():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""select t.title as Thread_title, p.title as Post_title, p.content 
+    from threads as t, posts as p 
+    where t.thread_id = p.thread_id""")
+    posts = cursor.fetchall()
+    post_list = []
+    for post in posts:
+        post_dict = {
+            "thread_title": flight[0],
+            "post_title": flight[1],
+            "content": flight[2],
+        }
+        post_list.append(post_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(post_list)
 
 if __name__ == '__main__':
     application.run(debug=True)
