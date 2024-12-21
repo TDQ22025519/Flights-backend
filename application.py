@@ -9,6 +9,56 @@ from werkzeug.security import generate_password_hash, check_password_hash
 application = Flask(__name__)
 CORS(application)
 
+def verify_credentials(username, password):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if the user exists
+    cursor.execute("SELECT password_hash FROM accounts WHERE username = %s;", (username,))
+    user = cursor.fetchone()
+
+    if user is None:
+        cursor.close()
+        conn.close()
+        return False  # User not found
+
+    password_hash = user[0]
+
+    # Check the password
+    if check_password_hash(password_hash, password):
+        cursor.close()
+        conn.close()
+        return True  # Credentials are valid
+    else:
+        cursor.close()
+        conn.close()
+        return False  # Invalid password
+
+def verify_admin_credentials(username, password):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if the user exists
+    cursor.execute("SELECT password_hash FROM admin_accounts WHERE username = %s;", (username,))
+    user = cursor.fetchone()
+
+    if user is None:
+        cursor.close()
+        conn.close()
+        return False  # User not found
+
+    password_hash = user[0]
+
+    # Check the password
+    if check_password_hash(password_hash, password):
+        cursor.close()
+        conn.close()
+        return True  # Credentials are valid
+    else:
+        cursor.close()
+        conn.close()
+        return False  # Invalid password
+
 # Database connection parameters
 DB_HOST = 'pg-27c1c731-dangquang22082004-c173.i.aivencloud.com'  # Change if your database is hosted elsewhere
 DB_NAME = 'defaultdb'
@@ -55,6 +105,8 @@ def flights():
 @application.route('/add_flight', methods=['POST'])
 def add_flight():
     data = request.get_json()
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
     departure = data.get('departure')
     destination = data.get('destination')
@@ -66,6 +118,9 @@ def add_flight():
     distance = data.get('distance')
     duration = data.get('duration')
     status = data.get('status') # Optional
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
     # Validate required fields
     if not all([flightnumber, departure, destination, departuredate, departuretime, price, distance, duration]):
         return jsonify({"error": "Missing required fields"}), 400
@@ -93,6 +148,8 @@ def add_flight():
 @application.route('/modify_flight/<flightnumber>', methods=['PUT'])
 def modify_flight(flightnumber):
     data = request.get_json()
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     departure = data.get('departure')
     destination = data.get('destination')
     departuredate = data.get('departuredate')
@@ -103,6 +160,9 @@ def modify_flight(flightnumber):
     distance = data.get('distance')
     duration = data.get('duration')
     status = data.get('status')
+    
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
     
     # Validate required fields (you can adjust this based on your requirements)
     if not any([departure, destination, departuredate, departuretime, price, distance, duration]):
@@ -172,10 +232,15 @@ def modify_flight(flightnumber):
 @application.route('/delete_flight', methods=['POST'])
 def delete_flight():
     data = request.get_json()
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
-
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
+    
     try:
         # Delete booking
         cursor.execute('DELETE FROM flights WHERE flightnumber = %s', (flightnumber,))
@@ -220,7 +285,8 @@ def planes():
 @application.route('/add_plane', methods=['POST'])
 def add_plane():
     data = request.get_json()
-    
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
     manufacturer = data.get('manufacturer')
     model = data.get('model')
@@ -230,6 +296,9 @@ def add_plane():
     max_eco = data.get('max_eco')
     max_bus = data.get('max_bus')
     max_first = data.get('max_first')
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     # Validate required fields
     if not all([flightnumber, manufacturer, model, year, max_seats, max_eco, max_bus, max_first]):
@@ -257,7 +326,8 @@ def add_plane():
 @application.route('/update_plane/<flightnumber>', methods=['PUT'])
 def update_plane(flightnumber):
     data = request.get_json()
-    
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     manufacturer = data.get('manufacturer')
     model = data.get('model')
     year = data.get('year')
@@ -266,6 +336,9 @@ def update_plane(flightnumber):
     max_eco = data.get('max_eco')
     max_bus = data.get('max_bus')
     max_first = data.get('max_first')
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     # Prepare the update query
     update_fields = []
@@ -340,7 +413,12 @@ def update_plane(flightnumber):
 @application.route('/delete_plane', methods=['DELETE'])
 def delete_plane():
     data = request.get_json()
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     if not flightnumber:
         return jsonify({"error": "Flight number is required"}), 400
@@ -381,14 +459,16 @@ def delete_plane():
         cursor.close()
         conn.close()
 
-
 @application.route('/accounts', methods=['POST'])
 def create_account():
     data = request.get_json()
     username = data.get('username')
     email = data.get('email')
+    realname = data.get('realname')
+    gender = data.get('gender')
+    birthdate = data.get('birthdate')
     password_hash = generate_password_hash(data.get('password_hash'))
-
+    
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -402,14 +482,132 @@ def create_account():
 
     # Create a new user
     cursor.execute(
-        "INSERT INTO accounts (username, email, password_hash) VALUES (%s, %s, %s);",
-        (username, email, password_hash)
+        "INSERT INTO accounts (username, email, password_hash, realname, gender, birthdate) VALUES (%s, %s, %s, %s, %s, %s);",
+        (username, email, password_hash, realname, gender, birthdate)
     )
     conn.commit()
     cursor.close()
     conn.close()
 
     return jsonify({'message': 'Account created successfully'}), 201
+
+@application.route('/account_details/<username>', methods=['POST'])
+def account_details(username):
+    data = request.get_json()
+    password = data.get('password')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if not (verify_credentials(username, password)):
+        return jsonify({'error': 'Invalid credentials'}), 400
+
+    # Check if the username exists in the accounts_data
+    cursor.execute("SELECT * FROM accounts WHERE username = %s;", (username,))
+    existing_user = cursor.fetchone()
+    if not existing_user:
+        cursor.close()
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+        
+    cursor.execute("""SELECT username, email, realname, birthdate, gender FROM accounts
+    WHERE username = %s;""", (username,))
+    details = cursor.fetchall()
+    detail_list = []
+    for detail in details:
+        detail_dict = {
+            "username": detail[0],
+            "email": detail[1],
+            "realname": detail[2],
+            "birthdate": detail[3].isoformat(),
+            "gender": detail[4]
+        }
+        detail_list.append(detail_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(detail_list)
+
+@application.route('/modify_accounts/<username>', methods=['PUT'])
+def update_account(username):
+    data = request.get_json()
+    password = data.get('password')
+    newusername = data.get('newusername')
+    email = data.get('email')
+    realname = data.get('realname')
+    birthdate = data.get('birthdate')
+    gender = data.get('gender')
+    newpassword = data.get('newpassword')
+
+    if not (verify_credentials(username, password)):
+        return jsonify({"error": "Invalid credentials"}), 400 
+
+    cursor.execute("SELECT id FROM accounts WHERE username = %s;", (username,))
+    user_id = cursor.fetchone()
+    # Initialize a list to hold the fields to update
+    updates = []
+    params = []
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Check if the user exists
+        cursor.execute("SELECT * FROM accounts WHERE id = %s;", (user_id,))
+        existing_user = cursor.fetchone()
+        if not existing_user:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'User not found'}), 404
+
+        # Check for username and email conflicts
+        if 'newusername' in data or 'email' in data:
+            cursor.execute("SELECT * FROM accounts WHERE (username = %s OR email = %s) AND id != %s;", (newusername, email, user_id))
+            conflicting_user = cursor.fetchone()
+            if conflicting_user:
+                cursor.close()
+                conn.close()
+                return jsonify({'error': 'Username or email already in use'}), 400
+
+        # Check and prepare updates
+        if 'newusername' in data:
+            updates.append("username = %s")
+            params.append(username)
+        if 'email' in data:
+            updates.append("email = %s")
+            params.append(email)
+        if 'realname' in data:
+            updates.append("realname = %s")
+            params.append(realname)
+        if 'gender' in data:
+            updates.append("gender = %s")
+            params.append(gender)
+        if 'birthdate' in data:
+            updates.append("birthdate = %s")
+            params.append(birthdate)
+        if 'newpassword' in data:
+            password_hash = generate_password_hash(newpassword)
+            updates.append("password_hash = %s")
+            params.append(password_hash)
+
+        # If no fields to update, return an error
+        if not updates:
+            cursor.close()
+            conn.close()
+            return jsonify({'error': 'No fields to update'}), 400
+
+        # Construct the update query
+        update_query = "UPDATE accounts SET " + ", ".join(updates) + " WHERE id = %s;"
+        params.append(user_id)
+
+        # Execute the update
+        cursor.execute(update_query, params)
+        conn.commit()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify({'message': 'Account updated successfully'}), 200
 
 @application.route('/login', methods=['POST'])
 def login():
@@ -475,10 +673,14 @@ def admin_login():
 def book_tickets_route():
     data = request.json
     username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
     ticket = data.get('ticket_type_id')
     seatclass = data.get('seat_class_id')
     quantity = data.get('numberoftickets')
+
+    if not (verify_credentials(username, password)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     if not all ([username, flightnumber, ticket, seatclass, quantity]):
         return jsonify({"error": "Missing input values"}), 400
@@ -654,7 +856,11 @@ def cancel_booking():
     data = request.get_json()
     booking_id = data.get('booking_id')
     username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
+
+    if not (verify_credentials(username, password)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -709,10 +915,15 @@ def fetch_messages(thread_id):
 @application.route('/upload_post', methods=['POST'])
 def add_message():
     data = request.json
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     thread_id = data.get('thread_id')
     user_id = data.get('user_id')
     content = data.get('content')
     title = data.get('title')
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     if not thread_id or not user_id or not content or not title:
         return jsonify({'error': 'Missing data'}), 400
@@ -746,8 +957,13 @@ def remove_message(post_id):
 @application.route('/upload_thread', methods=['POST'])
 def upload_thread():
     data = request.json
+    adminname = data.get('adminname')
+    adminpass = data.get('adminpass')
     title = data.get('title')
     user_id = data.get('user_id')
+
+    if not (verify_admin_credentials(adminname, adminpass)):
+        return jsonify({"error": "Invalid credentials"}), 400 
 
     if not title or not user_id:
         return jsonify({'error': 'Missing data'}), 400
@@ -798,14 +1014,16 @@ def fetch_threads():
         })
 
     return jsonify(thread_list), 200
-    
+
 @application.route('/fetch_news', methods=['GET'])
 def fetch_news():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""select t.title as Thread_title, p.title as Post_title, p.content 
     from threads as t, posts as p 
-    where t.thread_id = p.thread_id""")
+    where t.thread_id = p.thread_id
+    order by p.created_at DESC
+    """)
     posts = cursor.fetchall()
     post_list = []
     for post in posts:
