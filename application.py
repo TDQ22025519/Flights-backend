@@ -542,6 +542,9 @@ def update_account(username):
     birthdate = data.get('birthdate')
     gender = data.get('gender')
     newpassword = data.get('newpassword')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     if not (verify_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
@@ -552,8 +555,7 @@ def update_account(username):
     updates = []
     params = []
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    
     try:
         # Check if the user exists
         cursor.execute("SELECT * FROM accounts WHERE id = %s;", (user_id,))
