@@ -1045,5 +1045,80 @@ def fetch_news():
     conn.close()
     return jsonify(post_list)
 
+@application.route('/daily_stats', methods=['GET'])  # Explicitly specify GET method
+def daily_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM daily_ticket_summary ORDER BY booking_date;")
+    days = cursor.fetchall()
+    day_list = []
+    for day in days:
+        day_dict = {
+            "booking_date": day[0],
+            "total_tickets": day[1]
+        }
+        day_list.append(day_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(day_list)
+
+@application.route('/week_stats', methods=['GET'])  # Explicitly specify GET method
+def week_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM weekly_ticket_summary;")
+    weeks = cursor.fetchall()
+    week_list = []
+    for week in weeks:
+        week_dict = {
+            "week_start": week[0],
+            "total_tickets": week[1]
+        }
+        week_list.append(week_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(week_list)
+
+@application.route('/month_stats', methods=['GET'])  # Explicitly specify GET method
+def month_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM monthly_ticket_summary;")
+    months = cursor.fetchall()
+    month_list = []
+    for month in months:
+        month_dict = {
+            "month_year": month[0],
+            "total_tickets": month[1]
+        }
+        month_list.append(month_dict)
+    cursor.close()
+    conn.close()
+    return jsonify(month_list)
+
+@application.route('/total_seats', methods=['GET'])
+def total_seats():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Query the total_seats view
+    cursor.execute("SELECT * FROM total_seats;")
+    total_seats_data = cursor.fetchall()
+    
+    seat_list = []
+    for seat in total_seats_data:
+        seat_dict = {
+            "flightNumber": seat[0],
+            "departure": seat[1],
+            "destination": seat[2],
+            "totalBookedSeats": int(seat[3])
+        }
+        seat_list.append(seat_dict)
+    
+    cursor.close()
+    conn.close()
+    
+    return jsonify(seat_list)
+
 if __name__ == '__main__':
     application.run(debug=True)
