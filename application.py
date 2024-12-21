@@ -1102,7 +1102,8 @@ def total_seats():
     cursor = conn.cursor()
     
     # Query the total_seats view
-    cursor.execute("SELECT * FROM total_seats;")
+    cursor.execute("""SELECT * FROM total_seats ORDER BY total_booked_seats DESC
+    LIMIT 5;""")
     total_seats_data = cursor.fetchall()
     
     seat_list = []
