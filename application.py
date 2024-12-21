@@ -935,7 +935,8 @@ def fetch_messages(thread_id):
 # Route to add a message
 @application.route('/upload_post', methods=['POST'])
 def add_message():
-    data = request.json
+    data = request.json()
+    print("Received JSON:", data)
     username = data.get('username')
     password = data.get('password')
     thread_id = data.get('thread_id')
@@ -977,7 +978,8 @@ def remove_message(post_id):
 # Route to upload a thread
 @application.route('/upload_thread', methods=['POST'])
 def upload_thread():
-    data = request.json
+    data = request.json()
+    print("Received JSON:", data)
     username = data.get('username')
     password = data.get('password')
     title = data.get('title')
