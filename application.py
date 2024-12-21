@@ -110,6 +110,7 @@ def flights():
 @application.route('/add_flight', methods=['POST'])
 def add_flight():
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
@@ -153,6 +154,7 @@ def add_flight():
 @application.route('/modify_flight/<flightnumber>', methods=['POST'])
 def modify_flight(flightnumber):
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     departure = data.get('departure')
@@ -237,6 +239,7 @@ def modify_flight(flightnumber):
 @application.route('/delete_flight', methods=['POST'])
 def delete_flight():
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
@@ -290,6 +293,7 @@ def planes():
 @application.route('/add_plane', methods=['POST'])
 def add_plane():
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
@@ -331,6 +335,7 @@ def add_plane():
 @application.route('/update_plane/<flightnumber>', methods=['POST'])
 def update_plane(flightnumber):
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     manufacturer = data.get('manufacturer')
@@ -419,6 +424,7 @@ def update_plane(flightnumber):
 @application.route('/delete_plane', methods=['DELETE'])
 def delete_plane():
     data = request.get_json()
+    print("Received JSON:", data)
     adminname = data.get('adminname')
     adminpass = data.get('adminpass')
     flightnumber = data.get('flightnumber')
@@ -468,6 +474,7 @@ def delete_plane():
 @application.route('/accounts', methods=['POST'])
 def create_account():
     data = request.get_json()
+    print("Received JSON:", data)
     username = data.get('username')
     email = data.get('email')
     realname = data.get('realname')
@@ -500,6 +507,7 @@ def create_account():
 @application.route('/account_details/<username>', methods=['POST'])
 def account_details(username):
     data = request.get_json()
+    print("Received JSON:", data)
     password = data.get('password')
 
     conn = get_db_connection()
@@ -536,6 +544,7 @@ def account_details(username):
 @application.route('/modify_accounts/<username>', methods=['POST'])
 def update_account(username):
     data = request.get_json()
+    print("Received JSON:", data)
     password = data.get('password')
     newusername = data.get('newusername')
     email = data.get('email')
@@ -620,6 +629,7 @@ def update_account(username):
 @application.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
+    print("Received JSON:", data)
     username = data.get('username')
     password = data.get('password')
 
@@ -650,6 +660,7 @@ def login():
 @application.route('/admin_login', methods=['POST'])
 def admin_login():
     data = request.get_json()
+    print("Received JSON:", data)
     username = data.get('username')
     password = data.get('password')
 
@@ -862,6 +873,7 @@ def get_bookings(username):
 @application.route('/cancel', methods=['POST'])
 def cancel_booking():
     data = request.get_json()
+    print("Received JSON:", data)
     booking_id = data.get('booking_id')
     username = data.get('username')
     password = data.get('password')
@@ -1102,7 +1114,7 @@ def total_seats():
     cursor = conn.cursor()
     
     # Query the total_seats view
-    cursor.execute("""SELECT * FROM total_seats ORDER BY total_booked_seats DESC
+    cursor.execute("""SELECT * FROM total_seats; ORDER BY total_booked_seats DESC
     LIMIT 5;""")
     total_seats_data = cursor.fetchall()
     
