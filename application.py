@@ -832,7 +832,7 @@ def get_bookings(username):
     cursor = conn.cursor()
     try:
         cursor.execute('''
-            SELECT f.flightnumber, f.departure, f.destination, f.distance, f.duration, 
+            SELECT f.flightnumber, f.departure, f.destination, f.distance, f.duration, f.status, 
             b.booking_time, b.booking_id, b.quantity, b.price, t.type_name, s.class_name
             FROM bookings b
             JOIN accounts a ON b.account_id = a.id
@@ -854,12 +854,13 @@ def get_bookings(username):
                 'destination': booking[2],
                 'distance': booking[3],
                 'duration':booking[4].isoformat(),
-                'booking_time': booking[5].isoformat(),
-                'booking_id': booking[6],
-                'quantity': booking[7],
-                'price': booking[8],
-                'type_name': booking[9],
-                'class_name': booking[10]
+                'status': booking[5],
+                'booking_time': booking[6].isoformat(),
+                'booking_id': booking[7],
+                'quantity': booking[8],
+                'price': booking[9],
+                'type_name': booking[10],
+                'class_name': booking[11]
             })
 
         return jsonify(booking_list), 200
