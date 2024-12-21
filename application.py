@@ -937,15 +937,10 @@ def fetch_messages(thread_id):
 def add_message():
     data = request.get_json()
     print("Received JSON:", data)
-    username = data.get('username')
-    password = data.get('password')
     thread_id = data.get('thread_id')
     user_id = data.get('user_id')
     content = data.get('content')
     title = data.get('title')
-
-    if not (verify_admin_credentials(username, password)):
-        return jsonify({"error": "Invalid credentials"}), 400 
 
     if not thread_id or not user_id or not content or not title:
         return jsonify({'error': 'Missing data'}), 400
