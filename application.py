@@ -150,7 +150,7 @@ def add_flight():
         cursor.close()
         conn.close()
 
-@application.route('/modify_flight/<flightnumber>', methods=['PUT'])
+@application.route('/modify_flight/<flightnumber>', methods=['POST'])
 def modify_flight(flightnumber):
     data = request.get_json()
     adminname = data.get('adminname')
@@ -328,7 +328,7 @@ def add_plane():
         cursor.close()
         conn.close()
 
-@application.route('/update_plane/<flightnumber>', methods=['PUT'])
+@application.route('/update_plane/<flightnumber>', methods=['POST'])
 def update_plane(flightnumber):
     data = request.get_json()
     adminname = data.get('adminname')
@@ -532,7 +532,7 @@ def account_details(username):
     conn.close()
     return jsonify(detail_list)
 
-@application.route('/modify_accounts/<username>', methods=['PUT'])
+@application.route('/modify_accounts/<username>', methods=['POST'])
 def update_account(username):
     data = request.get_json()
     password = data.get('password')
