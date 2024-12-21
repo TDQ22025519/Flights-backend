@@ -342,6 +342,9 @@ def update_plane(flightnumber):
     max_bus = data.get('max_bus')
     max_first = data.get('max_first')
 
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
     if not (verify_admin_credentials(adminname, adminpass)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
@@ -381,8 +384,6 @@ def update_plane(flightnumber):
     # Add flightnumber to the end of the update values
     update_values.append(flightnumber)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
     try:
         # Construct the SQL update statement
         update_query = f"""
