@@ -111,8 +111,8 @@ def flights():
 def add_flight():
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
     departure = data.get('departure')
     destination = data.get('destination')
@@ -125,7 +125,7 @@ def add_flight():
     duration = data.get('duration')
     status = data.get('status') # Optional
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
     # Validate required fields
     if not all([flightnumber, departure, destination, departuredate, departuretime, price, distance, duration]):
@@ -155,8 +155,8 @@ def add_flight():
 def modify_flight(flightnumber):
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     departure = data.get('departure')
     destination = data.get('destination')
     departuredate = data.get('departuredate')
@@ -168,7 +168,7 @@ def modify_flight(flightnumber):
     duration = data.get('duration')
     status = data.get('status')
     
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
     
     # Validate required fields (you can adjust this based on your requirements)
@@ -240,13 +240,13 @@ def modify_flight(flightnumber):
 def delete_flight():
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
     
     try:
@@ -294,8 +294,8 @@ def planes():
 def add_plane():
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
     manufacturer = data.get('manufacturer')
     model = data.get('model')
@@ -306,7 +306,7 @@ def add_plane():
     max_bus = data.get('max_bus')
     max_first = data.get('max_first')
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
     # Validate required fields
@@ -336,8 +336,8 @@ def add_plane():
 def update_plane(flightnumber):
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     manufacturer = data.get('manufacturer')
     model = data.get('model')
     year = data.get('year')
@@ -350,7 +350,7 @@ def update_plane(flightnumber):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
     # Prepare the update query
@@ -425,11 +425,11 @@ def update_plane(flightnumber):
 def delete_plane():
     data = request.get_json()
     print("Received JSON:", data)
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     flightnumber = data.get('flightnumber')
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
     if not flightnumber:
@@ -935,14 +935,14 @@ def fetch_messages(thread_id):
 @application.route('/upload_post', methods=['POST'])
 def add_message():
     data = request.json
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     thread_id = data.get('thread_id')
     user_id = data.get('user_id')
     content = data.get('content')
     title = data.get('title')
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
     if not thread_id or not user_id or not content or not title:
@@ -977,12 +977,12 @@ def remove_message(post_id):
 @application.route('/upload_thread', methods=['POST'])
 def upload_thread():
     data = request.json
-    adminname = data.get('adminname')
-    adminpass = data.get('adminpass')
+    username = data.get('username')
+    password = data.get('password')
     title = data.get('title')
     user_id = data.get('user_id')
 
-    if not (verify_admin_credentials(adminname, adminpass)):
+    if not (verify_admin_credentials(username, password)):
         return jsonify({"error": "Invalid credentials"}), 400 
 
     if not title or not user_id:
