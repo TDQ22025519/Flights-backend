@@ -575,22 +575,22 @@ def update_account(username):
                 return jsonify({'error': 'Username or email already in use'}), 400
 
         # Check and prepare updates
-        if 'newusername' in data:
+        if newusername:
             updates.append("username = %s")
-            params.append(username)
-        if 'email' in data:
+            params.append(newusername)
+        if email:
             updates.append("email = %s")
             params.append(email)
-        if 'realname' in data:
+        if realname:
             updates.append("realname = %s")
             params.append(realname)
-        if 'gender' in data:
+        if gender:
             updates.append("gender = %s")
             params.append(gender)
-        if 'birthdate' in data:
+        if birthdate:
             updates.append("birthdate = %s")
             params.append(birthdate)
-        if 'newpassword' in data:
+        if newpassword:
             password_hash = generate_password_hash(newpassword)
             updates.append("password_hash = %s")
             params.append(password_hash)
