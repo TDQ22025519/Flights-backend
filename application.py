@@ -80,7 +80,9 @@ def get_db_connection():
 def flights():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM flights;")
+    cursor.execute("""select f.*, s.booked_seats_bus, s.booked_seats_eco, s.booked_seats_first
+    from flights as f, seats as s 
+    where f.flightnumber = s.flightnumber""")
     flights = cursor.fetchall()
     flight_list = []
     for flight in flights:
@@ -95,7 +97,10 @@ def flights():
             "price": float(flight[7]),
             "distance": float(flight[8]),
             "duration": flight[9].isoformat(),
-            "status": flight[10]
+            "status": flight[10],
+            "booked_seats_eco": flight[11],
+            "booked_seats_bus": flight[12],
+            "booked_seats_first": flight[13]
         }
         flight_list.append(flight_dict)
     cursor.close()
